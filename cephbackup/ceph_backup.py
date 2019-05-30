@@ -8,7 +8,7 @@ import os
 import rados
 import rbd
 
-class cephbackup():
+class cephbackup(object):
     '''
     rbd commands:
     rbd snap create rbd/image@snap_name
@@ -19,6 +19,7 @@ class cephbackup():
     SNAPSHOT_NAME = '{}-{}'.format(PREFIX,TIME_FMT)
 
     def __init__(self, pool, images, backup_dest, ceph_conf, backup_init):
+        super(cephbackup, self).__init__()
  	self._pool=pool
 	self._images = images
         self._backup_dest = backup_dest
