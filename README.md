@@ -1,4 +1,4 @@
-## cephbackup
+# cephbackup
 
 Cloudcluster ceph rbd incremental backup tool.
 * Incremental: incremental backups within a given backup window based on rbd snapshots
@@ -33,15 +33,12 @@ backup mode = incremental
 ### Go to the directory where you want to restore the image backup files(The directory define in your cephbackup config file)
 #### 1.Running full backup restore
     # rbd import {imagename}-{snapname}.full dest_image
-<br>
 
 #### 2.Recreate basic snapshot
     # rbd snap create dest_image@{snapname} 
-<br>
 
 #### 3.Restore incremental backup file
     # rbd import-diff {imagename}-{snapname}.diff_from{...} dest_image
-<br>
 
 
 ### Example
