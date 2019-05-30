@@ -85,8 +85,8 @@ class cephbackup():
 	image = rbd.Image(self._ceph_ioctx,imagename)
 	for overage_snapshot in snapshots:
 	    if overage_snapshot != full_snapname: 
-	        image.remove_snap(overage_snapshot)
-	        print "Deleted snapshot {pool}/{snapname}".format(pool=self._pool,snapname=overage_snapshot)
+	        print "Deleting snapshot {pool}/{snapname}".format(pool=self._pool,snapname=overage_snapshot)
+		image.remove_snap(overage_snapshot)
 
     def _delete_overage_backupfile(self,imagename):
 	#snapshots = self._get_snapshots(imagename)
@@ -97,7 +97,7 @@ class cephbackup():
 		print "Deleting backup file {backup_file}...".format(backup_file=dest_file)
 		os.remove(backup_file)
 
-    def _export_full_snapshot(self,imagename):
+    def _export_full_backupfile(self,imagename):
 	backupname=imagename+'@'+cephbackup.SNAPSHOT_NAME+".full"
 	dest_dir=os.path.join(self._backup_dest, self._pool, imagename)
     	if not os.path.exists(dest_dir):
@@ -127,17 +127,30 @@ class cephbackup():
                 self._delete_overage_backupfile(imagename)
 	    
 	    #export full backup	
-	    self._export_full_snapshot(imagename)
+	    self._export_full_backupfile(imagename)
 	    
     def incremental_backup(self):
 	'''
 	num of snapshot (>7 or ==0) --> full_backup
 		        (<7) --> get newest_snapshot --> create cur_snapshot --> export diff-from newest_snapshot image@cur_snapshot file    
 	'''
+	print "Starting increment backup..."
+	for imagename in self._images:
+	    print "\033[0;36m"+"{pool}/{image}:".format(pool=self._pool,image=imagename)+"\033[0m"
+	    
+	    #get current newest snapshot
+	    newest_snapshot = self._get_newest_snapshot(imagename)		
+
+	    #create snapshot
+	    cur_snapshot = self._create_snapshot(imagename)
+
+	    #export diff file
+	    self._export_diff_backupfile(imagename)
 
 def main():
     cp=cephbackup("rbd","*","/tmp/test","/etc/ceph/ceph.conf",check_mode=False, compress_mode=False, window_size=7, window_unit='days')
-    cp.full_backup()    	
+    #cp.full_backup()
+    cp.incremental_backup()    	
 
 
 if __name__ == '__main__':
