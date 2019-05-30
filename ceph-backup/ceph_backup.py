@@ -121,14 +121,19 @@ class cephbackup():
             self._create_snapshot(imagename)
 	
 	    #delete overage snapshot and export backup file
-	    full_snapname=self._get_newest_snapshot(imagename)
-	    self._delete_overage_snapshot(imagename,full_snapname)
-            self._delete_overage_backupfile(imagename)
+	    if self._get_num_snapshosts(imagename) != 1:
+	        full_snapname=self._get_newest_snapshot(imagename)
+	        self._delete_overage_snapshot(imagename,full_snapname)
+                self._delete_overage_backupfile(imagename)
 	    
 	    #export full backup	
 	    self._export_full_snapshot(imagename)
 	    
-
+    def incremental_backup(self):
+	'''
+	num of snapshot (>7 or ==0) --> full_backup
+		        (<7) --> get newest_snapshot --> create cur_snapshot --> export diff-from newest_snapshot image@cur_snapshot file    
+	'''
 
 def main():
     cp=cephbackup("rbd","*","/tmp/test","/etc/ceph/ceph.conf",check_mode=False, compress_mode=False, window_size=7, window_unit='days')
