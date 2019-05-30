@@ -34,18 +34,19 @@ backup mode = incremental
 #### 1.Running full backup restore
     # rbd import {imagename}-{snapname}.full dest_image
 <br>
-* rbd import test-SNAPSHOT-20190530145240.full test1
 
 #### 2.Recreate basic snapshot
     # rbd snap create dest_image@{snapname} 
 <br>
-* rbd snap create test1@SNAPSHOT-20190530145240
 
 #### 3.Restore incremental backup file
     # rbd import-diff {imagename}-{snapname}.diff_from{...} dest_image
 <br>
-* rbd import test-SNAPSHOT-20190530153047.diff_from_SNAPSHOT-20190530145240 test1
-* rbd import-diff test-SNAPSHOT-20190530153047.diff_from_SNAPSHOT-20190530145240 test1
-* rbd import-diff test-SNAPSHOT-20190530154156.diff_from_SNAPSHOT-20190530153047 test1
 
 
+### Example
+    # rbd import test-SNAPSHOT-20190530145240.full test1
+    # rbd snap create test1@SNAPSHOT-20190530145240
+    # rbd import test-SNAPSHOT-20190530153047.diff_from_SNAPSHOT-20190530145240 test1
+    # rbd import-diff test-SNAPSHOT-20190530153047.diff_from_SNAPSHOT-20190530145240 test1
+    # rbd import-diff test-SNAPSHOT-20190530154156.diff_from_SNAPSHOT-20190530153047 test1	
