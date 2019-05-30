@@ -111,25 +111,23 @@ class cephbackup():
     '''	
 
     def full_backup(self):
+	'''
+	create full snapshot --> delete overage snapshot --> delete backup export file --> export full snapshot to backup dir
+	'''
 	print "Starting full backup..."
 	for imagename in self._images:
 	    print "\033[0;36m"+"{pool}/{image}:".format(pool=self._pool,image=imagename)+"\033[0m"
-	    #delete overage snapshot and export backup file
 	    #create full backup snapshot        
             self._create_snapshot(imagename)
+	
+	    #delete overage snapshot and export backup file
 	    full_snapname=self._get_newest_snapshot(imagename)
 	    self._delete_overage_snapshot(imagename,full_snapname)
             self._delete_overage_backupfile(imagename)
 	    
-	    #create full backup snapshot	
-	    #self._create_snapshot(imagename)
-	    
 	    #export full backup	
 	    self._export_full_snapshot(imagename)
-	    #full_snapname=self._get_newest_snapshot(imagename)
-	    #print full_snapname
-	    #self._delete_overage_snapshot(imagename,full_snapname)
-	    #self._delete_overage_backupfile(imagename)
+	    
 
 
 def main():
