@@ -1,6 +1,7 @@
 #!encoding=utf8
 #!/usr/bin/python	
 from  executor import execute
+import re
 import time
 import argparse
 import os
@@ -48,13 +49,15 @@ class cephbackup():
     '''
 
     def _get_snapshots(self,imagename):
-	#retuen a list
+	#return a dic
+        #{'namespace': 0, 'id': 266L, 'name': u'SNAPSHOT-20190530004929', 'size': 1073741824L}
+	# dic.get('name') return snapshot name
         prefix_length = len(cephbackup.PREFIX)
 	image = rbd.Image(self._ceph_ioctx,imagename)
 	snapshots = []
 	for snapshot in image.list_snaps():
 	    if snapshot.get('name')[0:prefix_length] == cephbackup.PREFIX:
-		snapshots.append(snapshot)
+		snapshots.append(snapshot.get('name'))
 	return snapshots
 
     def _get_num_snapshosts(self, imagename):
@@ -75,22 +78,33 @@ class cephbackup():
     def _create_snapshot(self,imagename):
 	image = rbd.Image(self._ceph_ioctx,imagename) 
 	image.create_snap(cephbackup.SNAPSHOT_NAME)
+	return cephbackup.SNAPSHOT_NAME
 
-    def _delete_overage_snapshot(self,imagename):
-	snapshots = self._get_snapshots(self,imagename)
-	image = rbd.Image(self_ceph_ioctx,imagename)
+    def _delete_overage_snapshot(self,imagename,full_snapname):
+	snapshots = self._get_snapshots(imagename)
+	image = rbd.Image(self._ceph_ioctx,imagename)
 	for overage_snapshot in snapshots:
-	    image.remove_snap(overage_snapshot)
-	    print "Deleted snapshot {pool}/{snapname}".format(pool=self.pool,snapname=overage_snapshot)
+	    if overage_snapshot != full_snapname: 
+	        image.remove_snap(overage_snapshot)
+	        print "Deleted snapshot {pool}/{snapname}".format(pool=self._pool,snapname=overage_snapshot)
+
+    def _delete_overage_backupfile(self,imagename):
+	#snapshots = self._get_snapshots(imagename)
+	dest_dir = os.path.join(self._backup_dest, self._pool, imagename)
+	for dest_file in os.listdir(dest_dir):
+	    if re.match(r"{image}@(.*?)".format(image=imagename),dest_file):
+		backup_file = dest_dir+'/'+dest_file
+		print "Deleting backup file {backup_file}...".format(backup_file=dest_file)
+		os.remove(backup_file)
 
     def _export_full_snapshot(self,imagename):
-	backupname=self._pool+'@'+cephbackup.SNAPSHOT_NAME+".full"
+	backupname=imagename+'@'+cephbackup.SNAPSHOT_NAME+".full"
 	dest_dir=os.path.join(self._backup_dest, self._pool, imagename)
     	if not os.path.exists(dest_dir):
 	    os.makedirs(dest_dir)
 	full_backupname=dest_dir+'/'+backupname	
 	execute("rbd export {pool}/{image} {dest}".format(pool=self._pool,image=imagename,dest=full_backupname),sudo=True)
-	print "Exported image {pool}/{image} to {dest}\n".format(pool=self._pool,image=imagename,dest=full_backupname)
+	print "Exporting image {pool}/{image} to {dest}\n".format(pool=self._pool,image=imagename,dest=full_backupname)
 
     '''
     full backup
@@ -99,16 +113,27 @@ class cephbackup():
     def full_backup(self):
 	print "Starting full backup..."
 	for imagename in self._images:
-	    print "\033[0;36m"+"Backup {pool}/{image}:".format(pool=self._pool,image=imagename)+"\033[0m"
+	    print "\033[0;36m"+"{pool}/{image}:".format(pool=self._pool,image=imagename)+"\033[0m"
+	    #delete overage snapshot and export backup file
+	    #create full backup snapshot        
+            self._create_snapshot(imagename)
+	    full_snapname=self._get_newest_snapshot(imagename)
+	    self._delete_overage_snapshot(imagename,full_snapname)
+            self._delete_overage_backupfile(imagename)
+	    
 	    #create full backup snapshot	
-	    self._create_snapshot(imagename)
-	
+	    #self._create_snapshot(imagename)
+	    
 	    #export full backup	
 	    self._export_full_snapshot(imagename)
+	    #full_snapname=self._get_newest_snapshot(imagename)
+	    #print full_snapname
+	    #self._delete_overage_snapshot(imagename,full_snapname)
+	    #self._delete_overage_backupfile(imagename)
 
 
 def main():
-    cp=cephbackup("rbd","gx","/tmp/test","/etc/ceph/ceph.conf",check_mode=False, compress_mode=False, window_size=7, window_unit='days')
+    cp=cephbackup("rbd","*","/tmp/test","/etc/ceph/ceph.conf",check_mode=False, compress_mode=False, window_size=7, window_unit='days')
     cp.full_backup()    	
 
 
