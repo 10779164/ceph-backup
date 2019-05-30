@@ -18,15 +18,12 @@ class cephbackup():
     TIME_FMT = time.strftime('%Y%m%d%H%M%S')
     SNAPSHOT_NAME = '{}-{}'.format(PREFIX,TIME_FMT)
 
-    def __init__(self, pool, images, backup_dest, ceph_conf, check_mode=False, compress_mode=False, window_size=7, window_unit='days'):
+    def __init__(self, pool, images, backup_dest, ceph_conf, backup_init):
  	self._pool=pool
 	self._images = images
         self._backup_dest = backup_dest
-        self._check_mode = check_mode
-        self._compress_mode = compress_mode
-        self._window_size = window_size
-        self._window_unit = window_unit
 	self._ceph_conf= ceph_conf
+	self._backup_init = backup_init
 
  	cluster = rados.Rados(conffile=ceph_conf)
 	cluster.connect()
@@ -80,6 +77,14 @@ class cephbackup():
 	image.create_snap(cephbackup.SNAPSHOT_NAME)
 	return cephbackup.SNAPSHOT_NAME
 
+    def _backup_init_whether(self, imagename):
+	num = int(self._backup_init)+1
+	num_snapshots = int(self._get_num_snapshosts(imagename))
+	if num_snapshots > num:
+	    return False
+	else:
+	    return True
+
     def _delete_overage_snapshot(self,imagename,full_snapname):
 	snapshots = self._get_snapshots(imagename)
 	image = rbd.Image(self._ceph_ioctx,imagename)
@@ -94,26 +99,38 @@ class cephbackup():
 	for dest_file in os.listdir(dest_dir):
 	    if re.match(r"{image}@(.*?)".format(image=imagename),dest_file):
 		backup_file = dest_dir+'/'+dest_file
-		print "Deleting backup file {backup_file}...".format(backup_file=dest_file)
+		print "Deleting backup file {backup_file}".format(backup_file=dest_file)
 		os.remove(backup_file)
 
     def _export_full_backupfile(self,imagename):
-	backupname=imagename+'@'+cephbackup.SNAPSHOT_NAME+".full"
+	filename=imagename+'@'+cephbackup.SNAPSHOT_NAME+".full"
 	dest_dir=os.path.join(self._backup_dest, self._pool, imagename)
     	if not os.path.exists(dest_dir):
 	    os.makedirs(dest_dir)
-	full_backupname=dest_dir+'/'+backupname	
-	execute("rbd export {pool}/{image} {dest}".format(pool=self._pool,image=imagename,dest=full_backupname),sudo=True)
-	print "Exporting image {pool}/{image} to {dest}\n".format(pool=self._pool,image=imagename,dest=full_backupname)
+	full_filename=dest_dir+'/'+filename	
+	execute("rbd export {pool}/{image} {dest}".format(pool=self._pool,image=imagename,dest=full_filename),sudo=True)
+	print "Exporting image {pool}/{image} to {dest}\n".format(pool=self._pool,image=imagename,dest=full_filename)
+
+    def _export_diff_backupfile(self,imagename,newest_snapshot,cur_snapshot):
+	filename=imagename+'@'+cur_snapshot+".diff_from_"+newest_snapshot
+	dest_dir=os.path.join(self._backup_dest, self._pool, imagename)
+	if not os.path.exists(dest_dir):
+            os.makedirs(dest_dir)
+	full_filename=dest_dir+'/'+filename
+	execute("rbd export-diff --from-snap {base} {pool}/{image}@{cur} {dest}".format(base=newest_snapshot,pool=self._pool,image=imagename,cur=cur_snapshot,dest=full_filename),sudo=True)
+	print "Exporting image {pool}/{image} to {dest}\n".format(pool=self._pool,image=imagename,dest=full_filename)
+
+    def incremental_full_backup(self, imagename):
+	self._create_snapshot(imagename)
+	full_snapname=self._get_newest_snapshot(imagename)	
+	self._delete_overage_snapshot(imagename,full_snapname)
+        self._delete_overage_backupfile(imagename)
+        self._export_full_backupfile(imagename)
+
 
     '''
-    full backup
-    '''	
-
     def full_backup(self):
-	'''
-	create full snapshot --> delete overage snapshot --> delete backup export file --> export full snapshot to backup dir
-	'''
+	#create full snapshot --> delete overage snapshot --> delete backup export file --> export full snapshot to backup dir
 	print "Starting full backup..."
 	for imagename in self._images:
 	    print "\033[0;36m"+"{pool}/{image}:".format(pool=self._pool,image=imagename)+"\033[0m"
@@ -121,14 +138,30 @@ class cephbackup():
             self._create_snapshot(imagename)
 	
 	    #delete overage snapshot and export backup file
-	    if self._get_num_snapshosts(imagename) != 1:
+	    if self._get_num_snapshosts(imagename) != 1 and self._backup_mode == "incremental":
 	        full_snapname=self._get_newest_snapshot(imagename)
 	        self._delete_overage_snapshot(imagename,full_snapname)
                 self._delete_overage_backupfile(imagename)
+		self._export_full_backupfile(imagename)
 	    
+	    else:
 	    #export full backup	
+	        self._export_full_backupfile(imagename)
+    '''
+
+    #Ceph rbd full backup
+    def full_backup(self):
+	'''
+        create full snapshot --> delete overage snapshot --> delete backup export file --> export full snapshot to backup dir
+        '''
+	print "Starting full backup..."
+	for imagename in self._images:
+	    print "\033[0;36m"+"{pool}/{image}:".format(pool=self._pool,image=imagename)+"\033[0m"	
+	    self._create_snapshot(imagename)
 	    self._export_full_backupfile(imagename)
-	    
+
+
+    #Ceph rbd incremental backup		    
     def incremental_backup(self):
 	'''
 	num of snapshot (>7 or ==0) --> full_backup
@@ -136,25 +169,43 @@ class cephbackup():
 	'''
 	print "Starting increment backup..."
 	for imagename in self._images:
-	    print "\033[0;36m"+"{pool}/{image}:".format(pool=self._pool,image=imagename)+"\033[0m"
+	    m=self._backup_init_whether(imagename)
+	    if m:
+	        print "\033[0;36m"+"Starting incremental backup for {image}:".format(image=imagename)+"\033[0m"
 	    
-	    #get current newest snapshot
-	    newest_snapshot = self._get_newest_snapshot(imagename)		
+	        #get current newest snapshot
+	        newest_snapshot = self._get_newest_snapshot(imagename)		
 
-	    #create snapshot
-	    cur_snapshot = self._create_snapshot(imagename)
+	        #create snapshot
+	        cur_snapshot = self._create_snapshot(imagename)
 
-	    #export diff file
-	    self._export_diff_backupfile(imagename)
+	        #export diff file
+	        self._export_diff_backupfile(imagename,newest_snapshot,cur_snapshot)
+
+ 	    else:
+		print "\033[0;36m"+"Starting new full backup for {image}:".format(image=imagename)+"\033[0m"
+		self.incremental_full_backup(imagename)
+
+
+def test():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-p', '--pool', help="Ceph rbd pool name", required=True)
+    parser.add_argument('-i', '--images', nargs='+', help="List of ceph images to backup", required=True)
+    parser.add_argument('-d', '--dest', help="Backup file directory", required=True)
+    parser.add_argument('-c', '--ceph-conf', help="Path to ceph configuration file", type=str, default='/etc/ceph/ceph.conf')
+    args = parser.parse_args()
+
+    cp=cephbackup(args.pool, args.images, args.dest, args.ceph_conf, args.backup_mode)
+    cp.incremental_backup()
 
 def main():
-    cp=cephbackup("rbd","*","/tmp/test","/etc/ceph/ceph.conf",check_mode=False, compress_mode=False, window_size=7, window_unit='days')
+    cp=cephbackup("rbd","*","/tmp/test/rbd","/etc/ceph/ceph.conf",3)
     #cp.full_backup()
     cp.incremental_backup()    	
 
-
 if __name__ == '__main__':
     main()
+    #test()
 
 
 
