@@ -1,0 +1,15 @@
+#########################################################################################################################
+#   [rbd]: ceph rbd pool name. if you have multiple rbd pool , you need write multi section. like [rbd] [rbd1] [rbd2]... 
+#   backup init: Number of snapshots saved , over this number , cephbackup will restart increment 
+#   backup directory: the directory of ceph rbd backup file 
+#   images: rbd image name. backup all images "*" , backup part of images like "image1, image2, image3" 
+#   ceph config: the configure file of ceph cluster
+#   backup mode: 'full' or 'incremental'
+#########################################################################################################################
+
+[rbd]
+backup init = 7 
+backup directory = /backup
+images = *
+ceph config = /etc/ceph/ceph.conf
+backup mode = incremental
