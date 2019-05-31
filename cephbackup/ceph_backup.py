@@ -135,6 +135,7 @@ class cephbackup(object):
 
 
     def incremental_full_backup(self, imagename):
+        #create full snapshot --> delete overage snapshot --> delete backup export file --> export full snapshot to backup dir
 	self._create_snapshot(imagename)
 	full_snapname=self._get_newest_snapshot(imagename)	
 	self._delete_overage_snapshot(imagename,full_snapname)
@@ -166,7 +167,7 @@ class cephbackup(object):
     #Ceph rbd full backup
     def full_backup(self):
 	'''
-        create full snapshot --> delete overage snapshot --> delete backup export file --> export full snapshot to backup dir
+        create full snapshot --> export full snapshot to backup dir
         '''
 	print "Starting full backup..."
 	for imagename in self._images:
@@ -178,8 +179,8 @@ class cephbackup(object):
     #Ceph rbd incremental backup		    
     def incremental_backup(self):
 	'''
-	num of snapshot (>7 or ==0) --> full_backup
-		        (<7) --> get newest_snapshot --> create cur_snapshot --> export diff-from newest_snapshot image@cur_snapshot file    
+	num of snapshot (> backup init) --> incremental_full_backup
+		        (< backup init) --> get newest_snapshot --> create cur_snapshot --> export diff-from newest_snapshot image@cur_snapshot file    
 	'''
 	print "Starting increment backup..."
 	for imagename in self._images:
