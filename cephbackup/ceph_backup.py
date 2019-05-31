@@ -89,7 +89,7 @@ class cephbackup(object):
     def _backup_init_whether(self, imagename):
 	num = int(self._backup_init)+1
 	num_snapshots = int(self._get_num_snapshosts(imagename))
-	if num_snapshots > num:
+	if num_snapshots >= num:
 	    return False
 	else:
 	    return True
@@ -108,14 +108,14 @@ class cephbackup(object):
 	#snapshots = self._get_snapshots(imagename)
 	dest_dir = os.path.join(self._backup_dest, self._pool, imagename)
 	for dest_file in os.listdir(dest_dir):
-	    if re.match(r"{image}@(.*?)".format(image=imagename),dest_file):
+	    if re.match(r"{image}-(.*?)".format(image=imagename),dest_file):
 		backup_file = dest_dir+'/'+dest_file
 		print "Deleting backup file {backup_file}".format(backup_file=dest_file)
 		os.remove(backup_file)
 
 
     def _export_full_backupfile(self,imagename):
-	filename=imagename+'@'+cephbackup.SNAPSHOT_NAME+".full"
+	filename=imagename+'-'+cephbackup.SNAPSHOT_NAME+".full"
 	dest_dir=os.path.join(self._backup_dest, self._pool, imagename)
     	if not os.path.exists(dest_dir):
 	    os.makedirs(dest_dir)
@@ -125,7 +125,7 @@ class cephbackup(object):
 
 
     def _export_diff_backupfile(self,imagename,newest_snapshot,cur_snapshot):
-	filename=imagename+'@'+cur_snapshot+".diff_from_"+newest_snapshot
+	filename=imagename+'-'+cur_snapshot+".diff_from_"+newest_snapshot
 	dest_dir=os.path.join(self._backup_dest, self._pool, imagename)
 	if not os.path.exists(dest_dir):
             os.makedirs(dest_dir)
@@ -214,7 +214,7 @@ def test():
 
 
 def main():
-    cp=cephbackup("rbd","*","/tmp/test/","/etc/ceph/ceph.conf",3)
+    cp=cephbackup("rbd","*","/tmp/cephbackup/","/etc/ceph/ceph.conf",3)
     #cp.full_backup()
     cp.incremental_backup()    	
 
