@@ -133,17 +133,18 @@ class cephbackup(object):
 	execute("rbd export-diff --from-snap {base} {pool}/{image}@{cur} {dest}".format(base=newest_snapshot,pool=self._pool,image=imagename,cur=cur_snapshot,dest=full_filename),sudo=True)
 	print "Exporting image {pool}/{image} to {dest}\n".format(pool=self._pool,image=imagename,dest=full_filename)
 
+    def _incremental_init_backup(self,imagename):
+  	print "\033[0;36m"+"Starting incremental init backup for {image}:".format(image=imagename)+"\033[0m"     
+        self._create_snapshot(imagename)
+        self._export_full_backupfile(imagename)	
 
-    def incremental_full_backup(self, imagename):
+    def _incremental_full_backup(self, imagename):
         #create full snapshot --> delete overage snapshot --> delete backup export file --> export full snapshot to backup dir
 	self._create_snapshot(imagename)
-        if self._get_num_snapshosts(imagename) == 1:	
-            self._export_full_backupfile(imagename)
-        else:
-	    full_snapname=self._get_newest_snapshot(imagename)
-            self._delete_overage_snapshot(imagename,full_snapname)
-            self._delete_overage_backupfile(imagename)
-            self._export_full_backupfile(imagename)
+	full_snapname=self._get_newest_snapshot(imagename)
+        self._delete_overage_snapshot(imagename,full_snapname)
+        self._delete_overage_backupfile(imagename)
+        self._export_full_backupfile(imagename)
 
 
     '''
@@ -187,22 +188,25 @@ class cephbackup(object):
 	'''
 	print "Starting increment backup..."
 	for imagename in self._images:
-	    m=self._backup_init_whether(imagename)
-	    if m:
-	        print "\033[0;36m"+"Starting incremental backup for {image}:".format(image=imagename)+"\033[0m"
-	    
-	        #get current newest snapshot
-	        newest_snapshot = self._get_newest_snapshot(imagename)		
+	    if self._get_num_snapshosts(imagename) == 0:
+		self._incremental_init_backup(imagename)
+            else:
+	        m=self._backup_init_whether(imagename)
+	        if m:
+	            print "\033[0;36m"+"Starting incremental backup for {image}:".format(image=imagename)+"\033[0m"
+	     
+	            #get current newest snapshot
+	            newest_snapshot = self._get_newest_snapshot(imagename)		
 
-	        #create snapshot
-	        cur_snapshot = self._create_snapshot(imagename)
+	            #create snapshot
+	            cur_snapshot = self._create_snapshot(imagename)
 
-	        #export diff file
-	        self._export_diff_backupfile(imagename,newest_snapshot,cur_snapshot)
+	            #export diff file
+	            self._export_diff_backupfile(imagename,newest_snapshot,cur_snapshot)
 
- 	    else:
-		print "\033[0;36m"+"Starting new full backup for {image}:".format(image=imagename)+"\033[0m"
-		self.incremental_full_backup(imagename)
+ 	        else:
+		    print "\033[0;36m"+"Starting new full backup for {image}:".format(image=imagename)+"\033[0m"
+		    self._incremental_full_backup(imagename)
 
 
 def test():
