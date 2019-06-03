@@ -137,10 +137,13 @@ class cephbackup(object):
     def incremental_full_backup(self, imagename):
         #create full snapshot --> delete overage snapshot --> delete backup export file --> export full snapshot to backup dir
 	self._create_snapshot(imagename)
-	full_snapname=self._get_newest_snapshot(imagename)	
-	self._delete_overage_snapshot(imagename,full_snapname)
-        self._delete_overage_backupfile(imagename)
-        self._export_full_backupfile(imagename)
+        if self._get_num_snapshosts(imagename) == 1:	
+            self._export_full_backupfile(imagename)
+        else:
+	    full_snapname=self._get_newest_snapshot(imagename)
+            self._delete_overage_snapshot(imagename,full_snapname)
+            self._delete_overage_backupfile(imagename)
+            self._export_full_backupfile(imagename)
 
 
     '''
