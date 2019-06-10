@@ -50,6 +50,5 @@ backup mode = incremental
 
 
 ### Tips
-*  For new image, you might need disable below image features
-
+For new image, you might need disable below image features
     # rbd feature disable {image} object-map fast-diff deep-flatten    	
