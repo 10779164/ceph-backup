@@ -49,6 +49,7 @@ backup mode = incremental
     # rbd import-diff test-SNAPSHOT-20190530154156.diff_from_SNAPSHOT-20190530153047 test1
 
 
-### Tips
+## Tips
 For new image, you might need disable below image features
+
     # rbd feature disable {image} object-map fast-diff deep-flatten    	
