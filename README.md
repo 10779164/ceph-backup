@@ -42,7 +42,7 @@ backup mode = incremental
 
 
 ### Example
-    # rbd import test-SNAPSHOT-20190530145240.full test1
+    # rbd import test-SNAPSHOT-20190530145240.full test1 --image-format 2 --image-feature layering
     # rbd snap create test1@SNAPSHOT-20190530145240
     # rbd import test-SNAPSHOT-20190530153047.diff_from_SNAPSHOT-20190530145240 test1
     # rbd import-diff test-SNAPSHOT-20190530153047.diff_from_SNAPSHOT-20190530145240 test1
